@@ -1,0 +1,11 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ args: ['--use-angle=metal','--enable-gpu','--ignore-gpu-blocklist'] });
+const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
+const errs = [];
+p.on('pageerror', e => errs.push(e.message));
+await p.goto('http://127.0.0.1:8080/', { waitUntil: 'domcontentloaded' });
+await p.waitForFunction(() => window.game?.ready === true || window.__gameError, { timeout: 90000 });
+const s = await p.evaluate(() => ({ ready: window.game?.ready, err: window.__gameError ?? null }));
+console.log('dist build:', JSON.stringify(s), 'errors:', errs.length);
+await p.screenshot({ path: '/tmp/dist_shot.png' });
+await b.close();

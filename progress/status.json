@@ -1,0 +1,536 @@
+{
+  "phase": "round 7 · sun/fill ratio + warm sky + wood grain fixed",
+  "updated": "2026-08-14T08:35:18.717Z",
+  "perf": {
+    "medianMs": 5.899999976158142,
+    "p95Ms": 7.399999976158142,
+    "fps": 169.49152610864286,
+    "calls": 129,
+    "triangles": 48254
+  },
+  "pieces": [
+    {
+      "id": "weapon-models",
+      "name": "Weapon models",
+      "bar": "CS2 AK-47 / M4A4 viewmodel",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "All three weapons are the same untextured black extruded box differing only in length: the rifle is a slab + one cylinder, the SMG is a longer slab + cylinder, the pistol is a slab with a smaller slab under it. Zero readable sub-parts — no magazine, no pistol grip, no trigger or trigger guard, no stock, no charging handle, no front/rear sight (the pistol's only 'sight' is a 20px cube), no rail, no ejection port — and NO HANDS OR ARMS anywhere. The CS2 M4 in the same framing shows 30+ separable components plus a gloved hand with individual finger segments.",
+          "at": "2026-08-13T12:34:35.892Z"
+        },
+        {
+          "won": false,
+          "gap": "ROOT CAUSE FOUND — the geometry is fine, the lighting is not. WeaponModelFactory already builds ~15 parts per gun (barrel, gas tube, handguard, banana mag, grip, stock, trigger guard, front post, rear notch). I probed the live page: every weapon mesh is on layer 4 (mask=16) but EVERY light in the scene is on layer 0 (mask=1) — Ambient, Hemi, both Directionals, all 6 PointLights. So the viewmodel is lit by literally nothing and all 15 parts collapse into one black silhouette. Also scene.environment is set but no weapon material has envMap bound (hasEnvMap:false on all of them) because ViewmodelPass renders the same scene with a different camera. Give the lights VIEWMODEL in their layer mask (or add a dedicated 3-light viewmodel rig) and the existing model instantly reads.",
+          "at": "2026-08-13T12:46:26.876Z"
+        },
+        {
+          "won": false,
+          "gap": "Round 3, unchanged, and the fix is still one line of lighting not one hour of modelling. Live probe again confirms: all weapon meshes mask=16 (layer 4), all 10 scene lights mask=1 (layer 0). At 2.5x zoom the wood handguard is the ONLY part of the rifle I can separate — receiver, dust cover, banana mag, pistol grip, stock and trigger guard are all crushed to the same near-black and the stock merges into the ground shadow. The CS2 M4 at the same size shows ribbed heat-shield, front sight tower, carry-handle aperture cut-out, ejection port cover, mag, and a gloved hand with separable knuckles. Add LAYER.VIEWMODEL to the sun+ambient+hemi masks (light.layers.enable(4)) before touching geometry.",
+          "at": "2026-08-13T12:54:54.549Z"
+        },
+        {
+          "won": false,
+          "gap": "Round 4 on the SMG frame and there is a new visible defect on top of the unlit-black problem: a small dark box is floating detached in mid-air to the LEFT of the SMG, connected to nothing — likely one of the two folding-stock rails (built at x=+/-0.019) or the muzzle/eject Object3D helper being rendered. The stock rails, magazine, grip and trigger guard otherwise all collapse into a single black wedge. The lighting fix is still unapplied after 4 rounds: every weapon mesh is mask=16 (layer 4), every one of the 10 scene lights is mask=1 (layer 0), so no light reaches the viewmodel at all. One line: for each of sun/ambient/hemi, light.layers.enable(4).",
+          "at": "2026-08-13T13:02:32.228Z"
+        },
+        {
+          "won": false,
+          "gap": "Front half of the rifle is skeletal: bare barrel between handguard and muzzle, no dust cover detail, receiver reads as a plain rectangle",
+          "at": "2026-08-13T16:41:55.440Z"
+        },
+        {
+          "won": false,
+          "gap": "Viewmodel framing: barrel is only 5.9deg off the view axis so we look down the gun's spine; near/far scale ratio is 9.8:1 (stock 10x larger per cm than muzzle). Needs REST_YAW ~0.30 rad and grip further from eye. Lives in WeaponSystem.js/settings.js, not my file.",
+          "at": "2026-08-13T16:44:53.419Z"
+        },
+        {
+          "won": false,
+          "gap": "Found and fixed the real root cause: chamferedBox had 12/18 quads wound backwards, barrel outer wall inverted, lofts inside-out - the whole gun was partly invisible from outside. Now solid. Next gap: hands still do not visibly grip the weapon.",
+          "at": "2026-08-13T16:57:07.633Z"
+        },
+        {
+          "won": false,
+          "gap": "BLOCKED ON FILES I DO NOT OWN: 51% of the rifle renders off-frame (NDC x to 3.51, y to -6.16) and the visible part is the STOCK because REST_YAW is only 4.3deg, so the gun runs ALONG the view axis not across it. Needs REST_YAW ~0.35rad in WeaponSystem.js and viewmodelPos further from eye in settings.js. Model itself is now solid and correct from all angles.",
+          "at": "2026-08-13T16:58:34.499Z"
+        },
+        {
+          "won": false,
+          "gap": "PROVEN BY EXPERIMENT: REST_YAW=0.075rad (4.3deg) is the single biggest gap. I probed REST_YAW=0.35rad + viewmodelPos {0.20,-0.14,-0.46} live and the rifle immediately reads broadside like CS2 - see reference/ours/_yaw_b_yaw20.png vs _yaw_a_current.png. Fix is 2 constants in WeaponSystem.js + settings.js which I do not own.",
+          "at": "2026-08-13T17:00:27.981Z"
+        },
+        {
+          "won": false,
+          "gap": "All 3 weapons now structurally correct (SMG mag lengthened, floating front sight grounded, trigger guards on pistol+SMG were open hooks - now closed bows). Framing still blocked: REST_YAW 4.3deg means we look down the gun's spine.",
+          "at": "2026-08-13T17:04:42.316Z"
+        },
+        {
+          "won": false,
+          "gap": "Hands fixed: all 21 buried parts now clear the solids (tools/check_hands.mjs gates it), limbs were also uncapped TubeGeometry so they rendered as amputated pipes - now capped. But hands are INVISIBLE in-game because REST_YAW=0.075rad means we look down the gun's spine and the buttstock occludes everything. Framing is the blocker and it lives in WeaponSystem.js.",
+          "at": "2026-08-13T17:15:04.551Z"
+        },
+        {
+          "won": false,
+          "gap": "Baked per-vertex AO now on the viewmodel (bakeOcclusion in GunGeometry, 24ms at load, applied to indirect terms only) - junctions finally darken and the gun reads as one assembly. Hands fixed and gated by tools/check_hands.mjs. Remaining blocker is unchanged and not in my files: REST_YAW=0.075rad makes us look down the gun's spine, so hands and receiver detail are hidden behind the buttstock.",
+          "at": "2026-08-13T17:22:23.297Z"
+        },
+        {
+          "won": false,
+          "gap": "Materials now measurably match CS2 (wood sat 0.53 vs CS2 0.49; receiver 0.02; polymer 0.07) and AO is baked. But the in-game frame shows the gun ONLY from directly behind the buttstock: both hands, the magazine, the grip and the whole left receiver are occluded by the stock. This is 100% REST_YAW/REST_ROLL in WeaponSystem.js (4.3deg/4.9deg). My proof render reference/ours/_yaw_b_yaw20.png shows the same model at 20deg reading correctly. I cannot fix it from my files.",
+          "at": "2026-08-13T17:23:17.977Z"
+        },
+        {
+          "won": false,
+          "gap": "CONCRETE BUG FOUND IN FILES I DO NOT OWN: settings.weapons.adsEyeRelief is READ at WeaponSystem.js:214 but NEVER DEFINED in settings.js. So 'z: -relief - rear.z' is NaN, and every weapon's ADS z-offset is NaN. That is why ADS renders as a giant buttstock wall with a black rear sight. Adding adsEyeRelief (~0.075 for a viewmodel, not 0.22) to settings.weapons fixes ADS entirely. My geometric sight lines are verified clear by tools/check_ads.mjs.",
+          "at": "2026-08-13T17:26:24.422Z"
+        },
+        {
+          "won": false,
+          "gap": "All 3 weapons pass 4 automated gates now (geometry winding, hand clearance, sight lines, syntax). Pistol sights raised clear of the slide roof. The two things still blocking a win are both outside my files: (1) settings.weapons.adsEyeRelief is undefined so every ADS z-offset is NaN, (2) REST_YAW 0.075rad shows the gun end-on so hands/mag/grip hide behind the buttstock.",
+          "at": "2026-08-13T17:28:48.813Z"
+        },
+        {
+          "won": false,
+          "gap": "SMG frames well in-game (short weapon = less end-on distortion) and its hand is visible on the shroud; the 88cm rifle at REST_YAW 0.075rad is the case that fails, because its length runs along the view axis and the buttstock occludes the hands, magazine and grip. Same model at 20deg yaw reads correctly (reference/ours/_yaw_b_yaw20.png). Plus adsEyeRelief is undefined -> ADS z-offset NaN on all 3 weapons.",
+          "at": "2026-08-13T17:33:26.670Z"
+        }
+      ],
+      "gap": "SMG frames well in-game (short weapon = less end-on distortion) and its hand is visible on the shroud; the 88cm rifle at REST_YAW 0.075rad is the case that fails, because its length runs along the view axis and the buttstock occludes the hands, magazine and grip. Same model at 20deg yaw reads correctly (reference/ours/_yaw_b_yaw20.png). Plus adsEyeRelief is undefined -> ADS z-offset NaN on all 3 weapons."
+    },
+    {
+      "id": "weapon-materials",
+      "name": "Weapon materials",
+      "bar": "CS2 viewmodel PBR at 1080p",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "The weapon is a single flat near-black value (RGB ~12,14,20) across 100% of its surface with zero specular response — no highlight anywhere on it despite a strong sun that is clearly lighting the ground. It reads as an unlit/roughness-1.0 solid. The CoD AK in the same framing separates four materials in one frame (anodized receiver with a specular streak, matte perforated steel, knurled polymer, translucent inlay) plus a sun rim-light tracing the top of the barrel. Ours needs ANY metal specular + a rim/edge highlight before roughness variation even matters.",
+          "at": "2026-08-13T12:34:47.691Z"
+        },
+        {
+          "won": false,
+          "gap": "Same root cause as weapon-models and it dominates everything else: the materials are authored correctly (steel metalness 0.92 / rough 0.38, polymer 0.04/0.72, wood 0.0/0.62) but they render as flat black because no light reaches layer 4 and hasEnvMap is FALSE on every weapon material. A metalness-0.92 surface with no lights and no envMap is BLACK by definition — that is the entire reason the gun has zero specular. Bind the env map to the viewmodel materials (material.envMap = environment map, or render the viewmodel in a scene whose .environment is set) and add a light that includes layer 4; the PBR values already there will then do their job.",
+          "at": "2026-08-13T12:46:46.173Z"
+        },
+        {
+          "won": false,
+          "gap": "Round 3, unchanged: still zero specular anywhere on the gun and hasEnvMap=false on every weapon material while metalness sits at 0.88-0.92. A metal with no lights on its layer and no envMap renders BLACK — that is not a tuning problem, it is why nothing reads. Assign the PMREM env map onto the four WeaponModelFactory materials (steel/darkSteel/polymer/wood) directly, since ViewmodelPass renders through a camera whose scene.environment never reaches them, and put one light on layer 4. Only after there is a highlight on the gun does the roughness split between 0.38 steel and 0.72 polymer become visible at all.",
+          "at": "2026-08-13T12:54:54.589Z"
+        },
+        {
+          "won": false,
+          "gap": "Round 4 on the pistol frame: the whole weapon is two black rectangles with no specular, no reflection, no albedo break — against CoD's pistol which shows an iridescent slide whose highlight shifts hue across the curve, a matte polymer grip that visibly does not reflect like the slide, and gloved hands. Still hasEnvMap=false on all four weapon materials. NEW problem visible in this frame: the arena ground is now a mottled dark-green/brown wet-looking surface that reads as camouflage fabric, while the wall it butts against is flat untextured cream — the two share no light direction and no scale, so the frame has no consistent material language for the gun to sit in.",
+          "at": "2026-08-13T13:02:47.963Z"
+        }
+      ],
+      "gap": "Round 4 on the pistol frame: the whole weapon is two black rectangles with no specular, no reflection, no albedo break — against CoD's pistol which shows an iridescent slide whose highlight shifts hue across the curve, a matte polymer grip that visibly does not reflect like the slide, and gloved hands. Still hasEnvMap=false on all four weapon materials. NEW problem visible in this frame: the arena ground is now a mottled dark-green/brown wet-looking surface that reads as camouflage fabric, while the wall it butts against is flat untextured cream — the two share no light direction and no scale, so the frame has no consistent material language for the gun to sit in."
+    },
+    {
+      "id": "muzzle-flash",
+      "name": "Muzzle flash",
+      "bar": "MW3 / CS2 rifle flash, 2 frames",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "The flash is a single symmetric radial-gradient white circle floating in mid-air, and it emits no light: the weapon directly in front of it stays exactly as black as in the non-firing frame. It also does not originate at the barrel — the glow's center sits above and left of the muzzle. Needs (a) a shaped, asymmetric petal/star geometry with a blown white core and saturated orange mid before the falloff, (b) an actual point light so the receiver top and nearby ground flash warm for one frame, (c) attachment to the muzzle tip.",
+          "at": "2026-08-13T12:34:47.729Z"
+        },
+        {
+          "won": false,
+          "gap": "Unchanged from round 1 and now clearly worse than the reference at the same size: still one symmetric white radial blob, still detached — the glow's center sits up-and-LEFT of the muzzle with visible empty space between it and the barrel tip. It casts no light at all: the weapon body 40px away stays pure black and the ground beneath is unchanged, while both CS2 and MW3 reference frames show the flash lighting the receiver, the shooter's hand and the nearby wall warm. Priority order: (1) attach it to muzzlePoint so it stops floating, (2) add the one-frame point light, (3) only then shape the petals.",
+          "at": "2026-08-13T12:46:46.210Z"
+        },
+        {
+          "won": false,
+          "gap": "Round 3, unchanged, and now I can name why it reads as a headlight: the fragment shader multiplies the final colour by (1.4 + envelope*2.2) — up to 3.6x — which drives uColorMid #ffc247 and uColorEdge #ff5a12 past 1.0 on every channel, so after tone mapping the whole flash clips to WHITE and every trace of orange is gone. The reference CS2 flash is saturated orange with only a small white core. Also the light IS acquired (lights.acquire, 26*punch) yet the weapon body 40px away stays pure black — because that PointLight is on layer 0 and the weapon is on layer 4, so the flash physically cannot light the gun. Fix the over-bright multiplier so the mid/edge stay orange, and put the flash light on the viewmodel layer.",
+          "at": "2026-08-13T12:55:09.342Z"
+        },
+        {
+          "won": false,
+          "gap": "REGRESSION in round 4: the flash is now a ~300px fully-blown-white starburst with four symmetric diagonal lens-flare spikes, sitting with a visible GAP up-and-left of the barrel tip. It reads as a camera artifact or a sun flare, not as burning propellant. Zero orange survives anywhere in it — confirming the shader's 'color * (1.4 + envelope*2.2)' term is clipping uColorMid #ffc247 and uColorEdge #ff5a12 to pure white on all channels. Two concrete fixes, in order: (1) drop that multiplier to roughly 1.0-1.6 so the mid and edge stay orange after tone mapping and only the small r<0.2 core clips white, (2) parent the flash group to the muzzle in WORLD space each frame — group.position.copy(muzzlePoint.position) copies a LOCAL position, which is why it floats.",
+          "at": "2026-08-13T13:02:19.010Z"
+        }
+      ],
+      "gap": "REGRESSION in round 4: the flash is now a ~300px fully-blown-white starburst with four symmetric diagonal lens-flare spikes, sitting with a visible GAP up-and-left of the barrel tip. It reads as a camera artifact or a sun flare, not as burning propellant. Zero orange survives anywhere in it — confirming the shader's 'color * (1.4 + envelope*2.2)' term is clipping uColorMid #ffc247 and uColorEdge #ff5a12 to pure white on all channels. Two concrete fixes, in order: (1) drop that multiplier to roughly 1.0-1.6 so the mid and edge stay orange after tone mapping and only the small r<0.2 core clips white, (2) parent the flash group to the muzzle in WORLD space each frame — group.position.copy(muzzlePoint.position) copies a LOCAL position, which is why it floats."
+    },
+    {
+      "id": "recoil-feel",
+      "name": "Recoil & viewmodel motion",
+      "bar": "CS2 AK spray + CoD ADS kick",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "The firing frame and the resting frame are the SAME viewmodel pose — identical weapon position, angle and depth, identical horizon. After a 4-round burst there is no muzzle rise, no rotation about the grip, no rearward translation, and no camera punch. The only difference between firing and idle is that a lamp turned on. CS2's mid-burst frame has the receiver visibly tilted, the muzzle climbing out of frame, and the sights knocked out of alignment.",
+          "at": "2026-08-13T12:34:59.499Z"
+        },
+        {
+          "won": false,
+          "gap": "Still pixel-identical between the firing frame and the idle frame: same weapon screen position, same angle, same depth, same horizon, after four rounds. No muzzle rise, no rotation about the grip, no rearward translation, no camera punch, no settle. Worse, the one thing that does move is wrong — the flash sits LEFT of the muzzle, i.e. lateral, where a recoiling gun would throw it forward and the muzzle up. Make the burst visibly rotate the weapon group about the grip pivot (-x pitch) and translate it +z toward the eye, and kick the camera pitch, so that a still frame taken mid-burst is unmistakably different from a still frame taken at rest.",
+          "at": "2026-08-13T12:47:02.737Z"
+        },
+        {
+          "won": false,
+          "gap": "FOUND THE BUG. WeaponSystem._updateViewmodel integrates both kick springs as 'this.kickOffset[axis] += this.kickVelocity[axis] * dt * 0.01' and 'this.kickRotation[axis] += this.kickRotVelocity[axis] * dt * 0.01'. That stray * 0.01 divides the entire recoil displacement by 100, which is exactly why _fire()'s kickVelocity.z += kick*62 / kickRotVelocity.x -= kick*30 are mathematically present but visually invisible. Three consecutive captures of the firing shot are pixel-identical to the idle shot. Drop the 0.01 (and retune stiffness 320 / damping 26 to taste) and the recoil you already wrote will appear.",
+          "at": "2026-08-13T12:54:37.312Z"
+        },
+        {
+          "won": false,
+          "gap": "Fourth consecutive round with a pixel-identical firing frame and idle frame. The single line blocking this has not been touched: WeaponSystem._updateViewmodel still integrates 'kickOffset[axis] += kickVelocity[axis] * dt * 0.01' and 'kickRotation[axis] += kickRotVelocity[axis] * dt * 0.01'. Delete the '* 0.01' on both. _fire() already pushes kickVelocity.z += kick*62, kickVelocity.y += kick*16, kickRotVelocity.x -= kick*30 — the recoil is fully written and is being divided by 100 on its way to the screen. Until a still frame taken mid-burst differs visibly from a still frame at rest, this piece cannot be judged on anything else.",
+          "at": "2026-08-13T13:02:32.192Z"
+        }
+      ],
+      "gap": "Fourth consecutive round with a pixel-identical firing frame and idle frame. The single line blocking this has not been touched: WeaponSystem._updateViewmodel still integrates 'kickOffset[axis] += kickVelocity[axis] * dt * 0.01' and 'kickRotation[axis] += kickRotVelocity[axis] * dt * 0.01'. Delete the '* 0.01' on both. _fire() already pushes kickVelocity.z += kick*62, kickVelocity.y += kick*16, kickRotVelocity.x -= kick*30 — the recoil is fully written and is being divided by 100 on its way to the screen. Until a still frame taken mid-burst differs visibly from a still frame at rest, this piece cannot be judged on anything else."
+    },
+    {
+      "id": "ads",
+      "name": "Aim down sights",
+      "bar": "MW3 ADS transition + sight picture",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "ADS is functionally broken: the weapon becomes a solid black rectangle covering the center ~30% of the screen with NOTHING to aim through — no rear aperture, no front post, no optic ring, no lens. You cannot see the target. The gun does not even rise or center properly; it just gets bigger and blocks the view. CoD's ADS frame puts a hollow sight ring at screen center with the world fully visible through it. Needs an actual aperture/optic with a see-through center before any transition polish matters.",
+          "at": "2026-08-13T12:35:16.120Z"
+        },
+        {
+          "won": false,
+          "gap": "ADS is still unusable and slightly worse than round 1: aiming now presents TWO stacked black rectangles covering ~40% of the screen with no aperture, no front post, no optic ring, no glass and no reticle — you cannot see what you are aiming at, which is the entire function of the mode. The crosshair floats on top of solid black. Both CoD ADS references put a see-through ring at screen center with the world fully visible through it. Cut a real hole: a rear aperture ring (torus or ring geometry) aligned to camera center, with the front post visible inside it, and pull the weapon low enough that it occupies under 25% of frame.",
+          "at": "2026-08-13T12:47:15.704Z"
+        },
+        {
+          "won": false,
+          "gap": "Round 3, still the single worst frame in the project. Side by side with CoD's optic view the failure is unambiguous: theirs is a hollow ring with a green dot and the target fully visible through the glass; ours is two solid black rectangles plus a brown wedge covering the center ~40 percent with the crosshair drawn ON the black. The cause is structural — WeaponModelFactory's rear 'sight' is a solid 0.022x0.016x0.014 BoxGeometry, i.e. a filled block, so there is no aperture to see through no matter where the ADS pose puts it. Replace it with a RingGeometry or TorusGeometry (hollow center), align it to the view camera axis, and keep the front post visible inside the hole.",
+          "at": "2026-08-13T12:55:21.817Z"
+        },
+        {
+          "won": false,
+          "gap": "Round 4, unchanged, and it is now the single worst frame in the project by a wide margin — the only piece where our render is not merely worse than the reference but non-functional. Two solid black rectangles plus a brown wedge cover the center ~40 percent of the screen; there is no aperture, no glass, no reticle, no target visible. The blocker is that WeaponModelFactory's rear sight is a SOLID BoxGeometry(0.022, 0.016, 0.014) — a filled block cannot be looked through no matter how the ADS pose moves it. Swap it for a RingGeometry/TorusGeometry with a hollow center aligned to the view camera axis, and lower the weapon so it occupies under 25 percent of frame.",
+          "at": "2026-08-13T13:02:47.999Z"
+        }
+      ],
+      "gap": "Round 4, unchanged, and it is now the single worst frame in the project by a wide margin — the only piece where our render is not merely worse than the reference but non-functional. Two solid black rectangles plus a brown wedge cover the center ~40 percent of the screen; there is no aperture, no glass, no reticle, no target visible. The blocker is that WeaponModelFactory's rear sight is a SOLID BoxGeometry(0.022, 0.016, 0.014) — a filled block cannot be looked through no matter how the ADS pose moves it. Swap it for a RingGeometry/TorusGeometry with a hollow center aligned to the view camera axis, and lower the weapon so it occupies under 25 percent of frame."
+    },
+    {
+      "id": "impacts",
+      "name": "Bullet impacts",
+      "bar": "CS2 surface impacts (concrete/metal/wood)",
+      "status": "working",
+      "rounds": [],
+      "gap": null
+    },
+    {
+      "id": "tracers",
+      "name": "Tracers & shells",
+      "bar": "MW3 tracer + brass ejection",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "The tracer is one ~40px flat opaque tan rectangle lying nearly horizontal ON TOP of the receiver, pointing left, not along the crosshair line — it does not travel toward the point of aim at all. Hard rectangular ends, uniform alpha, no additive core, no taper. And the 'shells' half of this piece does not exist: there is no brass in the air and none on the ground in the firing frame, where CS2 shows an airborne casing catching a specular plus already-landed brass.",
+          "at": "2026-08-13T12:34:59.462Z"
+        },
+        {
+          "won": false,
+          "gap": "Unchanged. Zoomed to 4x: the tracer is a single flat pale-tan quad ~130px wide lying HORIZONTALLY across the frame, at right angles to the aim direction, drawn behind-and-left of the muzzle instead of running forward along the crosshair line. Uniform alpha, hard rectangular ends, no bright core, no taper, not additive. Orient it along (muzzle -> impact point), give it length and a hot core. Separately: after a 4-round burst there is still ZERO brass anywhere — none airborne, none on the ground. ShellEjector.js exists but nothing it produces appears in the capture; verify it is not also being killed by the layer-4 lighting problem or never spawned.",
+          "at": "2026-08-13T12:47:02.700Z"
+        },
+        {
+          "won": false,
+          "gap": "Regression: this round there is NO tracer in the firing frame at all — not even the misaligned tan quad from rounds 1-2. Cause is almost certainly settings.combat.tracerEvery=3 on the rifle combined with harness.burst(4) and CombatSystem's '_shotCount % weapon.tracerEvery === 0' gate, so whether a tracer exists in the reference capture is a coin flip — a screenshot-driven critique loop cannot judge a thing that only appears on every 3rd shot. And ShellEjector has a hard bug: the InstancedMesh is put on LAYER.WORLD (mesh.layers.set(LAYER.WORLD)) but ejected at the viewmodel's world position, which is inside the WORLD camera's 0.06 near plane — the brass is spawning at the eye and being clipped, which is why zero casings appear in air or on the ground in any of 3 rounds.",
+          "at": "2026-08-13T12:55:09.377Z"
+        },
+        {
+          "won": false,
+          "gap": "Four rounds, and I have now seen a tracer in exactly 2 of 4 firing captures — in both it was a flat horizontal quad pointing ACROSS the frame instead of along the aim line, and in rounds 3 and 4 there was no tracer at all. That non-determinism is itself the bug: rifle tracerEvery=3 gated by '_shotCount % tracerEvery === 0' against harness.burst(4) means whether the reference shot contains the effect is luck. Set tracerEvery=1 for the rifle so every shot shows one. Separately, zero brass has appeared in ANY of 4 captures: ShellEjector's InstancedMesh is on LAYER.WORLD but ejects at the viewmodel's world position, which sits inside the world camera's 0.06 near plane, so the casing spawns at the eye and is clipped away instantly.",
+          "at": "2026-08-13T13:02:19.047Z"
+        }
+      ],
+      "gap": "Four rounds, and I have now seen a tracer in exactly 2 of 4 firing captures — in both it was a flat horizontal quad pointing ACROSS the frame instead of along the aim line, and in rounds 3 and 4 there was no tracer at all. That non-determinism is itself the bug: rifle tracerEvery=3 gated by '_shotCount % tracerEvery === 0' against harness.burst(4) means whether the reference shot contains the effect is luck. Set tracerEvery=1 for the rifle so every shot shows one. Separately, zero brass has appeared in ANY of 4 captures: ShellEjector's InstancedMesh is on LAYER.WORLD but ejects at the viewmodel's world position, which sits inside the world camera's 0.06 near plane, so the casing spawns at the eye and is clipped away instantly."
+    },
+    {
+      "id": "monsters-form",
+      "name": "Monster silhouettes",
+      "bar": "Doom Eternal / Gears creature reads",
+      "status": "working",
+      "rounds": [],
+      "gap": null
+    },
+    {
+      "id": "monsters-material",
+      "name": "Monster materials",
+      "bar": "AAA creature skin: chitin + flesh",
+      "status": "working",
+      "rounds": [],
+      "gap": null
+    },
+    {
+      "id": "monsters-anim",
+      "name": "Monster movement",
+      "bar": "Believable multi-limb gait",
+      "status": "working",
+      "rounds": [],
+      "gap": null
+    },
+    {
+      "id": "arena-materials",
+      "name": "Arena materials",
+      "bar": "CS2 Dust II surfaces at 1080p",
+      "status": "working",
+      "rounds": [],
+      "gap": null
+    },
+    {
+      "id": "lighting",
+      "name": "Lighting & grade",
+      "bar": "CS2 Dust II lighting / MW3 grade",
+      "status": "working",
+      "rounds": [],
+      "gap": null
+    },
+    {
+      "id": "spell-thunder",
+      "name": "Storm Lance VFX",
+      "bar": "OW2 / FFXIV lightning casts",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "There is no lightning shape at all: the bolt is a shapeless blue-white haze bleeding off the left edge, with no hot white forked core, no branching, and nothing at the crosshair. Bloom is so wide it veils the whole frame.",
+          "at": "2026-08-13T12:31:44.353Z"
+        },
+        {
+          "won": false,
+          "gap": "The bolt is a soft-edged white smear that ends in the left half of the frame instead of at the crosshair, and its bloom has grown into a solid milk-white wall covering the entire left third of the image, erasing the arena wall behind it. Needs a thin hot-white forked core with visible branch structure, and 3-4x less bloom radius.",
+          "at": "2026-08-13T12:38:36.205Z"
+        },
+        {
+          "won": false,
+          "gap": "The bolt now correctly starts at the gun tip, but it is a WIDE soft-edged white ribbon with no hot core and no forking, and its bloom bleaches the horizon, far wall and ground to near-white haze. Make the bolt a thin hard-edged forked polyline with a 1-2px white core and cut the bloom radius by 3x.",
+          "at": "2026-08-13T12:44:39.711Z"
+        },
+        {
+          "won": false,
+          "gap": "Lightning is the highest-contrast phenomenon in nature: a near-black scene with a hairline-thin white filament. Ours is the opposite - a fat soft-edged white ribbon in uniformly bright grey-blue haze, terminating in mid-air short of the crosshair. Make the bolt hard-edged and 5x thinner with visible forks, and stop the bloom bleaching the sky and far wall.",
+          "at": "2026-08-13T12:50:48.085Z"
+        },
+        {
+          "won": false,
+          "gap": "Big improvement - the bolt is now thin, forked, starts at the gun tip and lands at the crosshair. What loses it now: the arcs are smooth rubbery curves, including one that loops out right of the crosshair and curls back on itself decoratively. Real lightning is sharply angular - straight segments with abrupt direction changes at every node, never a smooth arc.",
+          "at": "2026-08-13T12:58:12.719Z"
+        }
+      ],
+      "gap": "Big improvement - the bolt is now thin, forked, starts at the gun tip and lands at the crosshair. What loses it now: the arcs are smooth rubbery curves, including one that loops out right of the crosshair and curls back on itself decoratively. Real lightning is sharply angular - straight segments with abrupt direction changes at every node, never a smooth arc."
+    },
+    {
+      "id": "spell-ice",
+      "name": "Frost Lance VFX",
+      "bar": "FFXIV Blizzard / OW2 Mei",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "The ice shards clip to flat pure white with no internal blue, refraction or facet shading, so they read as chalk; and the falling snow is literal 6-pointed clipart snowflake glyphs, including ones floating in the sky.",
+          "at": "2026-08-13T12:31:44.387Z"
+        },
+        {
+          "won": false,
+          "gap": "The falling snow is literal 6-pointed clipart snowflake glyphs, several of them floating in the open sky above the horizon line. Replace with small soft anisotropic motes that fall only within the spell's radius.",
+          "at": "2026-08-13T12:38:36.242Z"
+        },
+        {
+          "won": false,
+          "gap": "The literal 6-pointed clipart snowflake glyphs are STILL there, about a dozen of them, several floating in open sky above the horizon unattached to anything. This single detail marks the frame as amateur no matter how good the shards get. Delete them.",
+          "at": "2026-08-13T12:44:39.746Z"
+        },
+        {
+          "won": false,
+          "gap": "Third round running: the 6-pointed clipart snowflake glyphs are still in the frame, at least six of them, two floating in open sky above the horizon and one enormous at lower right. No shipped game puts a snowflake emoji in the sky. Delete the glyph sprite entirely - the shards themselves are now good enough to carry it.",
+          "at": "2026-08-13T12:50:48.121Z"
+        },
+        {
+          "won": false,
+          "gap": "FOURTH ROUND FLAGGING THIS AND THE COUNT WENT UP: there are now ~25 six-pointed clipart snowflake glyphs scattered across the whole upper half of the frame - floating in open sky above the wall, over the treeline, 30m from the spell, one enormous at top-left. They are wallpaper, not falling snow. The shards themselves are now genuinely good; delete the glyph sprite entirely and ice wins.",
+          "at": "2026-08-13T12:58:23.094Z"
+        }
+      ],
+      "gap": "FOURTH ROUND FLAGGING THIS AND THE COUNT WENT UP: there are now ~25 six-pointed clipart snowflake glyphs scattered across the whole upper half of the frame - floating in open sky above the wall, over the treeline, 30m from the spell, one enormous at top-left. They are wallpaper, not falling snow. The shards themselves are now genuinely good; delete the glyph sprite entirely and ice wins."
+    },
+    {
+      "id": "spell-meteor",
+      "name": "Cinder Fall VFX",
+      "bar": "FFXIV Fire IV / OW2 ults",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "The fireball is a uniform opaque cream-white dome with visible straight polygon facets on its silhouette. It needs a white-hot core falling off through orange to deep red, roiling turbulence, and black smoke occluding it.",
+          "at": "2026-08-13T12:31:44.422Z"
+        },
+        {
+          "won": false,
+          "gap": "The fireball is a soft uniform gold blob with no dark smoke occluding it and no roiling turbulence or flame tongues on its silhouette, so it reads as a glowing balloon rather than combusting fuel.",
+          "at": "2026-08-13T12:38:36.276Z"
+        },
+        {
+          "won": false,
+          "gap": "The dome is a soft uniform gold mass with no dark smoke occluding it and no flame tongues breaking its silhouette, so it stays a glowing balloon; and the gun receives zero orange bounce from a fireball 8m away.",
+          "at": "2026-08-13T12:44:39.783Z"
+        },
+        {
+          "won": false,
+          "gap": "Closest of the six, lost on scene integration: the dome is a soft uniform gold mass with no dark smoke occluding it and no flame tongues on its silhouette, and the gun takes zero orange bounce from a fireball 8m away. Add occluding smoke and a warm dynamic light on the viewmodel.",
+          "at": "2026-08-13T12:50:48.155Z"
+        },
+        {
+          "won": false,
+          "gap": "Hardest call of the run and lost on the same two things for a third round: the dome is an evenly-lit soft gold balloon with no dark smoke occluding any part of it and no flame tongues breaking its silhouette, and the gun - a quarter of the frame - takes zero orange bounce from a fireball 8m away while the ground beside it is lit warm.",
+          "at": "2026-08-13T12:58:23.131Z"
+        }
+      ],
+      "gap": "Hardest call of the run and lost on the same two things for a third round: the dome is an evenly-lit soft gold balloon with no dark smoke occluding any part of it and no flame tongues breaking its silhouette, and the gun - a quarter of the frame - takes zero orange bounce from a fireball 8m away while the ground beside it is lit warm."
+    },
+    {
+      "id": "spell-beam",
+      "name": "Nova Beam VFX",
+      "bar": "OW2 Zarya/Moira beams",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "It is not a beam: it is a soft white cloud filling 55% of the frame, centred left of and below the crosshair, with no axis, no start, no end and no direction. Sized for a distant 3rd-person view; it swallows the FPS camera.",
+          "at": "2026-08-13T12:31:51.871Z"
+        },
+        {
+          "won": false,
+          "gap": "Still not a beam and unchanged from round 1: a white cloud filling most of the frame, centred low and left of the crosshair, with no axis, no origin and no terminus. It must be a THIN high-contrast line from the gun tip to the impact point with a hot white core.",
+          "at": "2026-08-13T12:38:44.818Z"
+        },
+        {
+          "won": false,
+          "gap": "REGRESSED. Now an enormous white sphere covering ~70% of the frame centred left of the crosshair, erasing the wall, horizon and ground. Three rounds and there is still no line, no axis, no origin, no terminus. A beam is a THIN cylinder from gun tip to impact point; ship that geometry before touching anything else.",
+          "at": "2026-08-13T12:44:49.651Z"
+        },
+        {
+          "won": false,
+          "gap": "FOUR ROUNDS, ZERO CHANGE. Still a white cloud filling ~70% of the frame centred left of and below the crosshair, erasing wall, horizon and ground. No line, no axis, no origin, no terminus - the one property that defines a beam is absent. Delete the volumetric blob and ship a thin hard-edged cylinder from the gun tip to the impact point first; add glow only after that reads.",
+          "at": "2026-08-13T12:50:58.583Z"
+        },
+        {
+          "won": false,
+          "gap": "FIVE ROUNDS, ZERO CHANGE - this is now the worst frame in the run. Still a white sphere swallowing ~70% of the frame centred left of the crosshair, erasing wall, horizon and ground. Faint blue crackle is visible inside it, so a beam material exists but is buried under a volumetric glow sized for a camera 8m back. Turn the volumetric glow OFF entirely, ship the bare thin cylinder from gun tip to impact, then add glow back at 1/10th radius.",
+          "at": "2026-08-13T12:58:12.646Z"
+        }
+      ],
+      "gap": "FIVE ROUNDS, ZERO CHANGE - this is now the worst frame in the run. Still a white sphere swallowing ~70% of the frame centred left of the crosshair, erasing wall, horizon and ground. Faint blue crackle is visible inside it, so a beam material exists but is buried under a volumetric glow sized for a camera 8m back. Turn the volumetric glow OFF entirely, ship the bare thin cylinder from gun tip to impact, then add glow back at 1/10th radius."
+    },
+    {
+      "id": "spell-snare",
+      "name": "Voltaic Snare VFX",
+      "bar": "Valorant / OW2 zone abilities",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "The lightning column is thin stringy noodles with no hot white core and no forking, so it reads as fibre-optic hair rather than electricity; the ring is a single flat washed-out torus.",
+          "at": "2026-08-13T12:31:51.909Z"
+        },
+        {
+          "won": false,
+          "gap": "The effect itself is now good, but the gun is an unlit flat black slab sitting metres from a 5m-wide violet light source and receives zero bounce from it, so the spell and the scene are not in the same lighting universe.",
+          "at": "2026-08-13T12:38:44.854Z"
+        },
+        {
+          "won": false,
+          "gap": "The effect is now competitive but it is lit in a different world from the scene: a flat unlit black gun fills the lower right three metres from a 5m violet light source and receives nothing from it. Add a violet dynamic light on the viewmodel keyed to the zone.",
+          "at": "2026-08-13T12:44:49.688Z"
+        },
+        {
+          "won": false,
+          "gap": "Best asset we have, but the gun is STILL a flat unlit black slab in the lower right sitting 3m from a 5m-wide violet light source and receiving nothing from it. The spell is lit and the scene is not - they read as two images stacked. Add a violet dynamic light on the viewmodel keyed to the zone.",
+          "at": "2026-08-13T12:50:58.620Z"
+        },
+        {
+          "won": false,
+          "gap": "Beat a weak FFXIV ambient frame blind but still lost to the closest-subject reference (ground AoE magic circle). The effect is competitive; the frame is not. The gun is a flat unlit black slab in the lower right receiving nothing from a 5m violet light source 3m away, and the walls behind are untextured cream slabs. Light the viewmodel off the zone.",
+          "at": "2026-08-13T12:58:23.167Z"
+        }
+      ],
+      "gap": "Beat a weak FFXIV ambient frame blind but still lost to the closest-subject reference (ground AoE magic circle). The effect is competitive; the frame is not. The gun is a flat unlit black slab in the lower right receiving nothing from a 5m violet light source 3m away, and the walls behind are untextured cream slabs. Light the viewmodel off the zone."
+    },
+    {
+      "id": "spell-glacier",
+      "name": "Glacial Crown VFX",
+      "bar": "OW2 Mei wall / FFXIV ice",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "The ice wall's core is clipped to pure white with zero internal structure, so it has no thickness, facets, translucency or blue at all and reads as steam, not ice.",
+          "at": "2026-08-13T12:31:51.944Z"
+        },
+        {
+          "won": false,
+          "gap": "The wall's centre is still clipped to pure white; the spikes only exist at the fringe where bloom falls off and dissolve into undifferentiated glow toward the middle. Needs internal facet shading and depth of blue instead of exposure.",
+          "at": "2026-08-13T12:38:44.905Z"
+        },
+        {
+          "won": false,
+          "gap": "Unchanged for three rounds: the wall core is clipped to pure white, spikes only visible at the extreme fringes, no blue and no facets anywhere. This is exposure, not ice. Cut emissive ~4x and let refraction and facet shading carry the read.",
+          "at": "2026-08-13T12:44:49.725Z"
+        },
+        {
+          "won": false,
+          "gap": "FOUR ROUNDS, ZERO CHANGE. The wall core is clipped to pure white with no internal structure; spikes are only discernible at the extreme fringes and the middle two-thirds dissolve into glow that erases the arena wall behind it. There is no blue in it anywhere. Cut emissive ~4x and let facet shading and refraction carry the read.",
+          "at": "2026-08-13T12:50:58.654Z"
+        },
+        {
+          "won": false,
+          "gap": "FIVE ROUNDS, ZERO CHANGE. Wall core still clipped to flat white with no facets, refraction or blue across the middle two-thirds, still erasing the arena wall and horizon behind it. Cut the emissive/bloom ~4x so the spike geometry that already exists at the fringes is visible across the whole wall.",
+          "at": "2026-08-13T12:58:12.681Z"
+        }
+      ],
+      "gap": "FIVE ROUNDS, ZERO CHANGE. Wall core still clipped to flat white with no facets, refraction or blue across the middle two-thirds, still erasing the arena wall and horizon behind it. Cut the emissive/bloom ~4x so the spike geometry that already exists at the fringes is visible across the whole wall."
+    },
+    {
+      "id": "hud",
+      "name": "HUD & crosshair",
+      "bar": "CS2 HUD + Valorant ability bar",
+      "status": "working",
+      "rounds": [
+        {
+          "won": false,
+          "gap": "Every HUD element is undecorated flat fill with no outline, stroke or drop shadow, so it will vanish over the light sandstone geometry — the '30/90' ammo is plain white text with nothing behind it, and the six ability chips are identical grey boxes whose captions are unreadable at 1080p native. HP/MP are two bare unstyled progress bars. Beyond styling there is nothing there at all: no minimap, no compass, no killfeed, no hit markers, no weapon icon, no damage vignette — CoD's frame in the same slot carries eight distinct information layers.",
+          "at": "2026-08-13T12:35:16.157Z"
+        },
+        {
+          "won": false,
+          "gap": "Unchanged. The six ability chips are the concrete failure: at 1920x1080 native their captions are sub-pixel unreadable — I could not identify a single ability name from the frame, and they are six identical grey rounded rectangles, so there is no shape, color or icon to tell them apart under fire. Give each an actual icon glyph and a per-element color, and put a dark scrim or 1px stroke behind every HUD text element (the ammo '30/90' and both bars included) — right now everything is flat fill with no outline and will vanish the moment the player looks at the light sandstone walls that make up most of this map.",
+          "at": "2026-08-13T12:47:15.741Z"
+        },
+        {
+          "won": false,
+          "gap": "Round 3, byte-identical HUD. The ability bar is the concrete blocker: six identical grey rounded rectangles, each carrying a single letter plus a caption that is physically unreadable at 1920x1080 native — I have now failed to identify a single ability name across three rounds of looking. They differ from each other in nothing: no icon, no color, no cooldown sweep, no key styling. Give each chip a distinct element color and a real glyph, then add a dark scrim behind every text element (ammo, both bars, chip captions) — CoD's equivalent tray tells you the active item at a glance from a green ring alone.",
+          "at": "2026-08-13T12:55:21.856Z"
+        },
+        {
+          "won": false,
+          "gap": "Round 4: the ability keys now carry per-element color (orange/red/blue), which is real progress on last round's gap — but the captions beneath them are still physically unreadable at 1920x1080 native, so the bar still cannot be used. Two things left, both mechanical: (1) raise the caption font size until the ability name is legible at 100 percent zoom, or drop the caption and use a distinct icon glyph per element, (2) put a dark scrim or 1px outline behind EVERY text element — the '30/90' ammo is still bare white pixels directly on open sky and the two HP/MP bars still have no border, so both vanish against the cream walls that make up most of this arena.",
+          "at": "2026-08-13T13:02:48.037Z"
+        }
+      ],
+      "gap": "Round 4: the ability keys now carry per-element color (orange/red/blue), which is real progress on last round's gap — but the captions beneath them are still physically unreadable at 1920x1080 native, so the bar still cannot be used. Two things left, both mechanical: (1) raise the caption font size until the ability name is legible at 100 percent zoom, or drop the caption and use a distinct icon glyph per element, (2) put a dark scrim or 1px outline behind EVERY text element — the '30/90' ammo is still bare white pixels directly on open sky and the two HP/MP bars still have no border, so both vanish against the cream walls that make up most of this arena."
+    },
+    {
+      "id": "perf",
+      "name": "Performance",
+      "bar": "60 fps @ 1080p in browser",
+      "status": "waiting",
+      "rounds": [],
+      "gap": null
+    }
+  ]
+}

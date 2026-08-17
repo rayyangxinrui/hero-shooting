@@ -1,0 +1,13 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ args: ['--use-angle=metal','--enable-gpu','--ignore-gpu-blocklist'] });
+const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
+const errs = [];
+p.on('pageerror', e => errs.push(e.message));
+const t0 = Date.now();
+await p.goto('https://rayyangxinrui.github.io/hero-shooting/', { waitUntil: 'domcontentloaded', timeout: 120000 });
+await p.waitForFunction(() => window.game?.ready === true || window.__gameError, { timeout: 120000 });
+const s = await p.evaluate(() => ({ ready: window.game?.ready, err: window.__gameError ?? null }));
+console.log(`booted over GitHub Pages in ${((Date.now()-t0)/1000).toFixed(1)}s: ${JSON.stringify(s)}  errors=${errs.length}`);
+if (errs.length) console.log('errors:', errs.slice(0,3));
+await p.screenshot({ path: '/tmp/pages_shot.png' });
+await b.close();

@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ args: ['--use-angle=metal','--enable-gpu','--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
+const shaderErrs = [];
+page.on('console', m => { const t=m.text(); if (/shader|GLSL|ERROR:|WARN/i.test(t)) shaderErrs.push(t.slice(0,900)); });
+page.on('pageerror', e => shaderErrs.push('PAGEERROR '+e.message));
+await page.goto('http://127.0.0.1:5178/', { waitUntil: 'domcontentloaded' });
+await page.waitForFunction(() => window.game?.ready === true || window.__gameError, { timeout: 60000 });
+await page.waitForTimeout(2500);
+console.log('--- shader/console messages:', shaderErrs.length);
+for (const e of shaderErrs.slice(0,6)) console.log('\n>>>', e);
+await browser.close();

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hero Shooting — build progress</title>
+    <style>
+      :root {
+        --bg: #0a0d12;
+        --panel: #121722;
+        --line: #1e2634;
+        --text: #dbe4f0;
+        --dim: #7c8ba3;
+        --ok: #4ce0a0;
+        --work: #ffb648;
+        --wait: #4a5568;
+        --fail: #ff5a4c;
+        --accent: #6bb6ff;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.55 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+        padding: 28px 34px 60px;
+      }
+      header { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+      h1 { font-size: 21px; letter-spacing: 0.16em; font-weight: 700; }
+      .sub { color: var(--dim); font-size: 12px; }
+      .bar-wrap { margin: 18px 0 26px; }
+      .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+      .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ok), var(--accent)); transition: width .4s ease; }
+      .bar-label { margin-top: 7px; font-size: 12px; color: var(--dim); }
+
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+      .card {
+        background: var(--panel); border: 1px solid var(--line);
+        border-radius: 7px; padding: 13px 15px;
+      }
+      .card.won { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+      .card.working { border-color: color-mix(in srgb, var(--work) 45%, var(--line)); }
+      .card.failed { border-color: color-mix(in srgb, var(--fail) 45%, var(--line)); }
+      .card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
+      .name { font-weight: 700; font-size: 13.5px; letter-spacing: .04em; }
+      .badge { font-size: 10.5px; padding: 2px 8px; border-radius: 20px; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+      .badge.won { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+      .badge.working { background: color-mix(in srgb, var(--work) 18%, transparent); color: var(--work); }
+      .badge.waiting { background: #1a2230; color: var(--wait); }
+      .badge.failed { background: color-mix(in srgb, var(--fail) 18%, transparent); color: var(--fail); }
+      .bar-vs { color: var(--dim); font-size: 11.5px; margin-bottom: 7px; }
+      .bar-vs b { color: var(--accent); font-weight: 600; }
+      .rounds { display: flex; gap: 4px; margin: 8px 0 7px; flex-wrap: wrap; }
+      .round { width: 20px; height: 20px; border-radius: 4px; background: #1a2230; display: grid; place-items: center; font-size: 10px; color: var(--dim); }
+      .round.lost { background: color-mix(in srgb, var(--fail) 22%, transparent); color: var(--fail); }
+      .round.won { background: color-mix(in srgb, var(--ok) 24%, transparent); color: var(--ok); }
+      .gap { font-size: 12px; color: var(--dim); border-top: 1px solid var(--line); padding-top: 7px; margin-top: 3px; }
+      .gap b { color: var(--text); font-weight: 600; }
+      footer { margin-top: 30px; color: var(--dim); font-size: 11.5px; }
+      .perf { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 5px; }
+      .perf span b { color: var(--ok); }
+      .stale { color: var(--fail); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>HERO SHOOTING</h1>
+      <span class="sub" id="tagline">first-person hero shooter · Three.js</span>
+    </header>
+
+    <div class="bar-wrap">
+      <div class="bar"><i id="overallBar" style="width:0%"></i></div>
+      <div class="bar-label" id="overallLabel">loading…</div>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+    <footer>
+      <div id="perf" class="perf"></div>
+      <div id="updated" style="margin-top:8px"></div>
+    </footer>
+
+    <script>
+      const STATUS_ORDER = { working: 0, failed: 1, waiting: 2, won: 3 };
+
+      async function refresh() {
+        let data;
+        try {
+          const res = await fetch('./status.json?t=' + Date.now());
+          data = await res.json();
+        } catch (e) {
+          document.getElementById('updated').innerHTML =
+            '<span class="stale">status.json unreadable — the run may not have started yet</span>';
+          return;
+        }
+
+        const pieces = data.pieces ?? [];
+        const won = pieces.filter((p) => p.status === 'won').length;
+        const pct = pieces.length ? (won / pieces.length) * 100 : 0;
+
+        document.getElementById('overallBar').style.width = pct.toFixed(1) + '%';
+        document.getElementById('overallLabel').textContent =
+          `${won} / ${pieces.length} pieces have beaten their bar blind` +
+          (data.phase ? ` · ${data.phase}` : '');
+
+        const sorted = pieces.slice().sort(
+          (a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)
+        );
+
+        document.getElementById('grid').innerHTML = sorted
+          .map((p) => {
+            const rounds = (p.rounds ?? [])
+              .map((r, i) => `<span class="round ${r.won ? 'won' : 'lost'}">${i + 1}</span>`)
+              .join('');
+            return `
+              <div class="card ${p.status}">
+                <div class="card-top">
+                  <span class="name">${escapeHtml(p.name)}</span>
+                  <span class="badge ${p.status}">${p.status}</span>
+                </div>
+                <div class="bar-vs">vs <b>${escapeHtml(p.bar ?? '—')}</b></div>
+                <div class="rounds">${rounds || '<span class="round">·</span>'}</div>
+                ${p.gap ? `<div class="gap"><b>biggest gap:</b> ${escapeHtml(p.gap)}</div>` : ''}
+              </div>`;
+          })
+          .join('');
+
+        const perf = data.perf;
+        document.getElementById('perf').innerHTML = perf
+          ? `<span>fps <b>${(perf.fps ?? 0).toFixed(0)}</b></span>
+             <span>frame <b>${(perf.medianMs ?? 0).toFixed(2)} ms</b></span>
+             <span>draw calls <b>${perf.calls ?? 0}</b></span>
+             <span>tris <b>${((perf.triangles ?? 0) / 1000).toFixed(0)}k</b></span>`
+          : '';
+
+        const age = data.updated ? (Date.now() - new Date(data.updated).getTime()) / 1000 : null;
+        document.getElementById('updated').textContent = data.updated
+          ? `updated ${new Date(data.updated).toLocaleTimeString()} (${age < 90 ? Math.round(age) + 's ago' : Math.round(age / 60) + 'm ago'})`
+          : '';
+      }
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) =>
+          ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+        );
+      }
+
+      refresh();
+      setInterval(refresh, 2500);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,15 @@
+import { chromium } from 'playwright';
+const URL = 'https://add-sized-edges-municipal.trycloudflare.com/';
+const b = await chromium.launch({ args: ['--use-angle=metal','--enable-gpu','--ignore-gpu-blocklist'] });
+const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
+const errs = [];
+p.on('pageerror', e => errs.push(e.message));
+p.on('response', r => { if (!r.ok() && r.status() !== 304) errs.push(`HTTP ${r.status()} ${r.url().slice(0,90)}`); });
+const t0 = Date.now();
+await p.goto(URL, { waitUntil: 'domcontentloaded', timeout: 120000 });
+await p.waitForFunction(() => window.game?.ready === true || window.__gameError, { timeout: 180000 });
+const s = await p.evaluate(() => ({ ready: window.game?.ready, err: window.__gameError ?? null }));
+console.log(`booted over public URL in ${((Date.now()-t0)/1000).toFixed(1)}s:`, JSON.stringify(s));
+console.log('errors:', errs.length, errs.slice(0,3));
+await p.screenshot({ path: '/tmp/public_shot.png' });
+await b.close();

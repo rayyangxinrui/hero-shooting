@@ -1,0 +1,21 @@
+import { chromium } from 'playwright';
+import { readFile, writeFile } from 'node:fs/promises';
+const [,, src, out, cx, cy, w, h, scale] = process.argv;
+const buf = await readFile(src);
+const url = `data:image/png;base64,${buf.toString('base64')}`;
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 100, height: 100 } });
+const dim = await p.evaluate(async ({url,cx,cy,w,h,scale}) => {
+  const img = await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;});
+  const c=document.createElement('canvas');
+  c.width=w*scale; c.height=h*scale;
+  const x=c.getContext('2d');
+  x.imageSmoothingEnabled=false;
+  x.drawImage(img, cx, cy, w, h, 0,0, w*scale, h*scale);
+  document.body.style.margin='0'; document.body.appendChild(c);
+  return {width:c.width,height:c.height};
+}, {url,cx:+cx,cy:+cy,w:+w,h:+h,scale:+scale});
+await p.setViewportSize(dim);
+await writeFile(out, await p.locator('canvas').screenshot({type:'png'}));
+await b.close();
+console.log('ok', dim);

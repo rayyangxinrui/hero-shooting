@@ -1,0 +1,649 @@
+/*
+ * HUD styling.
+ *
+ * Everything is absolutely positioned against the viewport and pointer-events
+ * are off by default: the HUD must never eat a click meant for pointer lock.
+ *
+ * The type is DIN Condensed — the same class of face every military shooter
+ * uses for an ammo counter, and one that ships on macOS so the capture browser
+ * actually resolves it. `font-variant-numeric: tabular-nums` everywhere a
+ * number ticks, because a counter whose digits change width jitters, and a
+ * jittering ammo counter is the first thing that reads as amateur.
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --hud-white: #f2f6f8;
+  --hud-dim: rgba(238, 246, 250, 0.42);
+  --hud-hp: #45e39b;
+  --hud-hp-low: #ff4436;
+  --hud-mp: #47a8ff;
+  --hud-warn: #ffb020;
+  --font-cond: 'DIN Condensed', 'Avenir Next Condensed', 'PT Sans Narrow',
+    'Arial Narrow', 'Helvetica Neue', sans-serif;
+  --font-ui: 'Avenir Next Condensed', 'DIN Alternate', 'Helvetica Neue', system-ui, sans-serif;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #05070a;
+  font-family: var(--font-ui);
+  color: var(--hud-white);
+  user-select: none;
+  cursor: default;
+  -webkit-font-smoothing: antialiased;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hud-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------ */
+/* Crosshair                                                           */
+/*                                                                     */
+/* Four bars and no dot. Each bar is a 2 px white core with a hard 1 px */
+/* black surround, built out of two stacked elements rather than a      */
+/* box-shadow: a shadow with a blur of 0 is still composited with       */
+/* anti-aliasing at fractional device pixels, whereas a solid child     */
+/* inset by 1 px is always crisp. That difference is visible at 1080p   */
+/* and it is the whole reason CS2's crosshair looks sharper than every  */
+/* imitation of it.                                                     */
+/* ------------------------------------------------------------------ */
+
+.hud-crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transition: opacity 0.06s linear;
+  will-change: opacity;
+}
+
+.hud-crosshair .ch {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* The outline: the element itself is black, the ::after is the white core. */
+  background: rgba(0, 0, 0, 0.92);
+}
+
+.hud-crosshair .ch::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: var(--hud-white);
+}
+
+/* Vertical bars: 4 px wide overall (1 + 2 + 1), 9 px tall (1 + 7 + 1). */
+.hud-crosshair .ch-t,
+.hud-crosshair .ch-b {
+  width: 4px;
+  height: 9px;
+  margin-left: -2px;
+}
+
+.hud-crosshair .ch-t {
+  margin-top: -9px;
+}
+
+.hud-crosshair .ch-l,
+.hud-crosshair .ch-r {
+  width: 9px;
+  height: 4px;
+  margin-top: -2px;
+}
+
+.hud-crosshair .ch-l {
+  margin-left: -9px;
+}
+
+/* No centre dot. CS2 ships with it off, and it hides exactly the pixel the
+   player is trying to place on a head. */
+.hud-crosshair .ch-dot {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Hitmarker                                                           */
+/*                                                                     */
+/* Four short diagonal ticks in a 30 px box, drawn as rotated bars with */
+/* the same black-under-white treatment as the crosshair so they stay   */
+/* readable over a muzzle flash.                                        */
+/* ------------------------------------------------------------------ */
+
+.hud-hitmarker {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.hud-hitmarker span {
+  position: absolute;
+  width: 11px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.hud-hitmarker span::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: #ffffff;
+}
+
+.hud-hitmarker span:nth-child(1) {
+  top: 2px;
+  left: 2px;
+  transform: rotate(45deg);
+}
+.hud-hitmarker span:nth-child(2) {
+  top: 2px;
+  right: 2px;
+  transform: rotate(-45deg);
+}
+.hud-hitmarker span:nth-child(3) {
+  bottom: 2px;
+  left: 2px;
+  transform: rotate(-45deg);
+}
+.hud-hitmarker span:nth-child(4) {
+  bottom: 2px;
+  right: 2px;
+  transform: rotate(45deg);
+}
+
+/* A kill is red and slightly hotter, so it reads without being looked at. */
+.hud-hitmarker.kill span::after {
+  background: #ff3b28;
+}
+.hud-hitmarker.kill {
+  filter: drop-shadow(0 0 5px rgba(255, 40, 24, 0.75));
+}
+
+/* ------------------------------------------------------------------ */
+/* Damage vignette                                                     */
+/* ------------------------------------------------------------------ */
+
+.hud-damage {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse 78% 74% at center,
+    rgba(150, 12, 8, 0) 40%,
+    rgba(158, 14, 8, 0.42) 78%,
+    rgba(178, 18, 10, 0.82) 100%
+  );
+  transition: opacity 0.08s linear;
+}
+
+/* ------------------------------------------------------------------ */
+/* Vitals — bottom left                                                */
+/*                                                                     */
+/* Number first and large, bar second and thin. The number is what the  */
+/* player reads under pressure; the bar is peripheral, so it is 3 px.   */
+/* ------------------------------------------------------------------ */
+
+.hud-bottom-left {
+  position: absolute;
+  left: 44px;
+  bottom: 40px;
+}
+
+.hud-vital {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.hud-vital-icon {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  opacity: 0.9;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+}
+
+.hud-vital-hp {
+  color: var(--hud-hp);
+}
+.hud-vital-hp .hud-vital-icon {
+  fill: currentColor;
+  stroke: none;
+}
+.hud-vital-mp {
+  color: var(--hud-mp);
+}
+.hud-vital-mp .hud-vital-icon {
+  fill: currentColor;
+  stroke: none;
+}
+
+.hud-vital-value {
+  font-family: var(--font-cond);
+  font-size: 30px;
+  line-height: 0.86;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  min-width: 46px;
+  color: var(--hud-white);
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.95), 0 2px 6px rgba(0, 0, 0, 0.85);
+}
+
+.hud-vital-value.low {
+  color: var(--hud-hp-low);
+}
+
+.hud-bar {
+  width: 132px;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+.hud-bar i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: currentColor;
+  transition: width 0.1s linear;
+}
+
+.hud-bar i.low {
+  background: var(--hud-hp-low);
+}
+
+/* ------------------------------------------------------------------ */
+/* Ammo — bottom right                                                 */
+/*                                                                     */
+/* Big condensed magazine count, reserve stacked small beside it under  */
+/* a rule. The hierarchy has to be immediate: one number is urgent, the */
+/* other is background, and putting them at the same weight (which is   */
+/* what "30 / 90" does) makes the player read both every time.          */
+/* ------------------------------------------------------------------ */
+
+.hud-bottom-right {
+  position: absolute;
+  right: 46px;
+  bottom: 36px;
+  text-align: right;
+}
+
+.hud-weapon {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-indent: 0.26em;
+  color: var(--hud-dim);
+  margin-bottom: 4px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+}
+
+.hud-ammo {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.hud-ammo-mag {
+  font-family: var(--font-cond);
+  font-size: 68px;
+  font-weight: 400;
+  line-height: 0.78;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.005em;
+  color: var(--hud-white);
+  /* A real outline, not a blur: four hard offsets plus one soft drop so the
+     counter survives a white wall and a muzzle flash alike. */
+  text-shadow: 1px 0 0 rgba(0, 0, 0, 0.9), -1px 0 0 rgba(0, 0, 0, 0.9),
+    0 1px 0 rgba(0, 0, 0, 0.9), 0 -1px 0 rgba(0, 0, 0, 0.9),
+    0 3px 12px rgba(0, 0, 0, 0.85);
+}
+
+.hud-ammo-mag.low {
+  color: var(--hud-warn);
+}
+
+.hud-ammo-mag.empty {
+  color: var(--hud-hp-low);
+}
+
+.hud-ammo-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-bottom: 4px;
+}
+
+.hud-ammo-sep {
+  display: block;
+  width: 34px;
+  height: 1px;
+  background: rgba(238, 246, 250, 0.3);
+  margin-bottom: 3px;
+}
+
+.hud-ammo-reserve {
+  font-family: var(--font-cond);
+  font-size: 27px;
+  line-height: 0.8;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-dim);
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.95), 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+/* The reload is a bar, not a word: the player needs to know *when*, and a
+   word cannot say that. */
+.hud-reload {
+  width: 132px;
+  height: 3px;
+  margin-top: 9px;
+  margin-left: auto;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.09s linear;
+}
+
+.hud-reload.visible {
+  opacity: 1;
+}
+
+.hud-reload i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--hud-warn);
+  transform-origin: left;
+  transform: scaleX(0);
+}
+
+/* ------------------------------------------------------------------ */
+/* Ability bar — Valorant-shaped                                       */
+/*                                                                     */
+/* A row of square tiles with the key letter *below* the tile, an icon  */
+/* inside it, a cooldown sweep that fills from the bottom, and an       */
+/* accent that only appears when the ability is actually ready. The     */
+/* not-ready state is deliberately almost invisible — a bar of six      */
+/* glowing tiles is six things competing with the crosshair.            */
+/* ------------------------------------------------------------------ */
+
+.hud-abilities {
+  position: absolute;
+  left: 50%;
+  bottom: 34px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 7px;
+}
+
+.hud-ability {
+  --accent: #8ab;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.hud-ability-tile {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  background: rgba(4, 8, 12, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.14s linear, background-color 0.14s linear;
+}
+
+.hud-ability.ready .hud-ability-tile {
+  border-color: color-mix(in srgb, var(--accent) 78%, transparent);
+  background: rgba(4, 8, 12, 0.42);
+  box-shadow: inset 0 0 12px -6px var(--accent);
+}
+
+.hud-ability-icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: rgba(238, 246, 250, 0.3);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.14s linear;
+}
+
+.hud-ability.ready .hud-ability-icon {
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 55%, transparent));
+}
+
+.hud-ability-cd {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 4, 7, 0.74);
+  transform-origin: bottom;
+  transform: scaleY(0);
+}
+
+.hud-ability-timer {
+  position: absolute;
+  font-family: var(--font-cond);
+  font-size: 19px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: rgba(238, 246, 250, 0.82);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+}
+
+.hud-ability-key {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  color: rgba(238, 246, 250, 0.34);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+  transition: color 0.14s linear;
+}
+
+.hud-ability.ready .hud-ability-key {
+  color: rgba(238, 246, 250, 0.88);
+}
+
+/* ------------------------------------------------------------------ */
+/* Stats / toast / lock prompt                                         */
+/* ------------------------------------------------------------------ */
+
+.hud-top-right {
+  position: absolute;
+  right: 22px;
+  top: 20px;
+  font-family: var(--font-cond);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  text-align: right;
+  opacity: 0;
+  color: #9ff5c8;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
+}
+
+.hud-top-right.visible {
+  opacity: 0.85;
+}
+
+.hud-toast {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-indent: 0.18em;
+  opacity: 0;
+  transition: opacity 0.14s linear;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95);
+  color: rgba(238, 246, 250, 0.75);
+}
+
+.hud-toast.visible {
+  opacity: 1;
+}
+
+.hud-lock {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 7, 11, 0.72);
+  backdrop-filter: blur(3px);
+  transition: opacity 0.2s linear;
+}
+
+.hud-lock.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hud-lock-inner {
+  text-align: center;
+}
+
+.hud-lock-rule {
+  width: 44px;
+  height: 2px;
+  background: var(--hud-mp);
+  margin: 0 auto 18px;
+}
+
+.hud-lock-inner h1 {
+  font-family: var(--font-cond);
+  font-size: 58px;
+  font-weight: 400;
+  letter-spacing: 0.24em;
+  text-indent: 0.24em;
+  margin-bottom: 4px;
+}
+
+.hud-lock-cta {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-indent: 0.24em;
+  opacity: 0.5;
+  margin-bottom: 30px;
+}
+
+.hud-lock-keys {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 6px 30px;
+  font-size: 11px;
+  opacity: 0.42;
+  letter-spacing: 0.07em;
+}
+
+.hud-lock-keys b {
+  color: #9ceeff;
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ */
+/* Loading                                                             */
+/* ------------------------------------------------------------------ */
+
+#loading {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #05070a;
+  transition: opacity 0.4s ease;
+}
+
+#loading.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-inner {
+  text-align: center;
+  width: 320px;
+}
+
+.loading-title {
+  font-family: var(--font-cond);
+  font-size: 32px;
+  letter-spacing: 0.28em;
+  text-indent: 0.28em;
+  margin-bottom: 22px;
+}
+
+.loading-track {
+  width: 100%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.loading-track i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #9ceeff;
+  transition: width 0.25s ease;
+}
+
+.loading-label {
+  margin-top: 12px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  opacity: 0.42;
+}

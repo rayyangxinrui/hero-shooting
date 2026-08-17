@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Build output (deployed separately to `main` via dist/)
+dist/
+
+# Large / non-source artifacts
+reference/
+_downloads/
+
+# OS noise
+.DS_Store

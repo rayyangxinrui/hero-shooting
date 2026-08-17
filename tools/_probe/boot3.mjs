@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ args: ['--use-angle=metal','--enable-gpu','--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
+page.on('pageerror', e => console.log('PAGEERROR:', e.message, '\n  STACK:', (e.stack||'').split('\n').slice(0,6).join('\n  ')));
+page.on('console', m => console.log('CONSOLE['+m.type()+']:', m.text().slice(0,900)));
+await page.goto('http://127.0.0.1:5178/', { waitUntil: 'domcontentloaded' });
+await page.waitForTimeout(14000);
+const st = await page.evaluate(() => ({ ready: window.game?.ready, err: window.__gameError ?? null, label: document.getElementById('loadingLabel')?.textContent }));
+console.log('STATE:', JSON.stringify(st).slice(0, 2500));
+await browser.close();
