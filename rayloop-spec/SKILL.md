@@ -15,15 +15,28 @@ carry through verbatim.**
 Plain `rayloop` deliberately withholds architecture, decomposition and stack
 choice, on the principle that every extra instruction is one fewer decision the
 agent makes with its own judgment. That principle is right *when the user has no
-opinion*. It is wrong when they do — a user who has already decided on WebGPU
-compute skinning, or a 4-pass separable bloom at half resolution, or `p99 < 8ms`
-at 1440p, is not helped by an agent that "decides better" and quietly picks
-something else.
-
-So the rule inverts:
+opinion*. It is wrong when they do. So the rule inverts:
 
 > In plain rayloop, unstated means the agent decides.
 > Here, **stated means locked**, and unstated still means the agent decides.
+
+## Flow
+
+This file must stand alone — an agent that loaded only this skill was observed
+skipping the bar-picking step entirely, because the flow lived in the sibling
+skill's file. So the full flow is restated here:
+
+1. **Read the goal and the spec.** Restatement in your head, not on screen.
+2. **Set the bar.** If the user supplied a reference, use it. If not, offer
+   **2 or 3 candidate bars**, one line each, and stop. Wait for their pick. Do
+   not write the prompt yet.
+3. **Write the prompt.** One block, paste-ready, no preamble, no narration
+   after it.
+4. **Offer to run it.** One flat line under the prompt: "I can run this here."
+   Not a question.
+
+If they say run it, you become the lead agent and follow the prompt you just
+wrote.
 
 ## No length limit
 
@@ -242,8 +255,11 @@ twice and confirm the measurement is stable. Say what each number is measured on
 The critic should be a harsh critic. Praise is not useful. If ours does not win,
 it keeps going.
 
-/loop on each piece until the critic picks ours blind and conformance passes. Do
-not stop before that.
+/loop on each piece until [the critic picks ours blind / two consecutive rounds
+yield no gap that is both real and fixable] and conformance passes. Fill in the
+exit that matches the bar above — the two are not interchangeable, and a
+winnable exit on an asymptotic bar is a loop that never stops. Do not stop
+before that.
 
 Keep a live progress page updating as the work evolves so I can watch it.
 
@@ -264,6 +280,12 @@ Fan out subagents and ultracode.
 - Add tool names only if the goal needs them.
 - Keep the taste bar even when the spec is enormous. Spec conformance is not
   quality.
+- **Fill in the /loop exit to match the bar.** The template's bracket ships
+  unresolved on purpose; a prompt that leaves it unresolved, or that pairs a
+  winnable exit with an asymptotic bar, is broken. This was caught in testing:
+  the template previously hardcoded the winnable exit while offering the
+  asymptotic option, which is the exact "loop that never stops" the skill warns
+  about elsewhere.
 
 ## Which version to use
 

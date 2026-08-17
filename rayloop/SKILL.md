@@ -130,7 +130,7 @@ Check a piece is actually working - drawn, wired, receiving its inputs - before 
 
 The critic should be a harsh critic. Praise is not useful. If ours does not win, it keeps going.
 
-/loop on each piece until the critic picks ours blind. Do not stop before that.
+/loop on each piece until [the critic picks ours blind / two consecutive rounds yield no real fixable gap]. Fill in the exit that matches the bar above — the two are not interchangeable, and a winnable exit on an asymptotic bar is a loop that never stops. Do not stop before that.
 
 Keep a live progress page updating as the work evolves so I can watch it.
 
@@ -141,6 +141,7 @@ Rules for what you fill in:
 
 - Bake the bar in as a concrete, fetchable thing. URL, product name, repo, title.
 - Say which exit condition applies - winnable or asymptotic.
+- Fill in the /loop line to match it. The template's bracket is left open on purpose; a winnable exit on an asymptotic bar is a loop that never stops.
 - Add a budget or cost ceiling line **only if the user named one**. No default cap.
 - Add tool names only if the goal needs them (image or video generation, a browser, a deploy target).
 - Everything else stays out. No architecture, no file layout, no decomposition, no round count, no stack choice unless the user demanded it. The agent decides those, and it decides better than a spec written before the work started.
@@ -225,7 +226,7 @@ Check the piece is doing its job before judging its prose - claims accurate, no 
 
 The critic should be a harsh critic. Praise is not useful. If ours does not win, it keeps going.
 
-/loop on each piece until the critic picks ours blind. Do not stop before that.
+/loop on each piece until no real fixable gap is left. Do not stop before that.
 
 Keep a live progress page updating as the work evolves so I can watch it.
 

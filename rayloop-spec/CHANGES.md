@@ -119,3 +119,43 @@ The parts that earned their place in the real run:
   violations obvious at a glance. A 300-line spec prompt can hide a contradiction
   that nobody notices until round five. The "surface contradictions before
   writing" rule is a mitigation, not a solution.
+
+## Round-1 test results (appended after the first full run)
+
+Ran once, end-to-end, on a real spec (a Phaser 3.80 / TypeScript cyberpunk
+platformer with 8 pinned items: engine versions, 480x270 pixel-perfect, Arcade
+gravity and jump numbers in frames, a strict 16-color palette, Tiled 16x16,
+perf and bundle budgets, a directory layout).
+
+What worked:
+
+- The bar step executed correctly, including the reachability check at bar-setting
+  time (Steam page fetched before the bar was offered), and the flow stopped and
+  waited for the user's pick.
+- All 8 spec bullets landed in LOCKED with values verbatim; none belonged in
+  OPEN. The two split calls were right: the 4 named hexes locked, the other 12
+  palette colors open; "Vite build" locked, the Vite *version* open (pinning it
+  would have been an invented lock).
+- The partition absorbed the tester's own urge to invent constraints (it wanted
+  to pin the remaining palette colors and physics values; the skill correctly
+  forced them into OPEN).
+
+Two defects found, both now fixed in this file:
+
+1. **The flow steps were invisible from the spec skill alone.** The file said
+   "Same engine as rayloop" and relied on the sibling skill's Flow section; an
+   agent loading only this file skipped the stop-and-wait bar step entirely.
+   The Flow is now restated in this file.
+2. **The template's /loop exit contradicted the asymptotic option.** The exit
+   line hardcoded "until the critic picks ours blind" while the bar line offered
+   an asymptotic exit — the exact "loop that never stops" the skill itself
+   warns about. The exit is now an unfilled bracket that must match the chosen
+   bar, and a rule says so. The same contradiction existed in the sibling
+   `rayloop` (its non-visual example paired an asymptotic bar with the winnable
+   exit); fixed there too.
+
+Open judgment calls the tester had to make, worth knowing about: "strictly 16
+colors" does not say whether a Tiled transparent pixel counts against the 16,
+and frame-based timings ("coyote 6 frames") need the locked 60fps to be
+meaningful. Both are candidates for a user question in a real run rather than a
+silent operationalization.
